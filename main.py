@@ -94,7 +94,7 @@ st.markdown("""
 # --- HEADER SECTION ---
 col1, col2 = st.columns([3, 1])
 with col1:
-    st.title("SyllabusScout ⚡")
+    st.title("Syllabus Scout ⚡")
     st.markdown("<h3 style='margin-top: -20px; font-size: 1.2rem; color: #64748b;'>AI-Powered Academic Intelligence Engine</h3>", unsafe_allow_html=True)
 with col2:
     # Just a visual placeholder for "Status"
