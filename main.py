@@ -111,7 +111,6 @@ if "GROQ_API_KEY" in st.secrets:
         # No "Success" message. Just the helpful info.
         st.info("💡 **Pro Tip:** Upload all your syllabi at once to detect cross-course conflicts.")
         st.markdown("---")
-        st.caption("v1.0.0 | Rutgers CS Project")
 
 # 2. Manual Auth (If you are running locally without a secrets file)
 else:
