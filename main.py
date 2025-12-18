@@ -103,18 +103,18 @@ with col2:
 st.divider()
 
 # --- SIDEBAR & AUTH ---
-# Check if the key is in secrets (Resume Mode)
+# 1. Automatic Auth (If you set the secret in Streamlit Cloud)
 if "GROQ_API_KEY" in st.secrets:
     api_key = st.secrets["GROQ_API_KEY"]
-    # Hide the sidebar input since we already have the key
     with st.sidebar:
         st.header("⚙️ Control Panel")
-        st.success("✅ API Connected (Resume Mode)")
+        # No "Success" message. Just the helpful info.
         st.info("💡 **Pro Tip:** Upload all your syllabi at once to detect cross-course conflicts.")
         st.markdown("---")
         st.caption("v1.0.0 | Rutgers CS Project")
+
+# 2. Manual Auth (If you are running locally without a secrets file)
 else:
-    # If no secret found, ask the user (Dev Mode)
     with st.sidebar:
         st.header("⚙️ Control Panel")
         api_key = st.text_input("Groq API Key", type="password", placeholder="gsk_...")
