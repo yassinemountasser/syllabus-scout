@@ -11,11 +11,11 @@ Calendar Export: Generates a .ics file compatible with Google Calendar, Apple Ca
 
 Tech Stack:
 
-Frontend: Streamlit (Python)
-AI/LLM: Google Generative AI (Gemini)
-Data Processing: Pandas, PyMuPDF (Fitz)
-Visualization: Plotly Express
-Utilities: ICS (iCalendar)
+Frontend: Streamlit (Python)    
+AI/LLM: Google Generative AI (Gemini)    
+Data Processing: Pandas, PyMuPDF (Fitz)    
+Visualization: Plotly Express    
+Utilities: ICS (iCalendar)    
 
 Installation & Setup
 
