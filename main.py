@@ -64,7 +64,7 @@ def parse_with_gemini(syllabus_text, api_key):
     # Configure Gemini
     genai.configure(api_key=api_key)
     
-    # We use 1.5 Flash because it's fast, free, and smart
+    # Updated Model Name to fix 404 Error
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
     
     system_prompt = """
@@ -83,6 +83,13 @@ def parse_with_gemini(syllabus_text, api_key):
       {"event": "Essay 1", "date": "TBD", "type": "Homework", "weight": 10}
     ]
     """
+    
+    try:
+        response = model.generate_content(system_prompt + "\n\nSYLLABUS TEXT:\n" + syllabus_text)
+        return response.text
+    except Exception as e:
+        st.error(f"Gemini Error: {e}")
+        return None
     
     try:
         # Gemini handles large context very well
