@@ -14,10 +14,9 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 🎨 THE DESIGN OVERHAUL (CSS) ---
+# --- 🎨 THE DESIGN (CSS) ---
 st.markdown("""
 <style>
-    /* Import modern font */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
     
     html, body, [class*="css"] {
@@ -30,7 +29,7 @@ st.markdown("""
         color: #e2e8f0;
     }
 
-    /* TITLES: Neon Gradient Text */
+    /* TITLES */
     h1 {
         background: -webkit-linear-gradient(45deg, #00f2ff, #00c6ff);
         -webkit-background-clip: text;
@@ -43,23 +42,17 @@ st.markdown("""
         font-weight: 600;
     }
 
-    /* CARDS: Glassmorphism Effect */
-    div[data-testid="stMetric"], div.stDataFrame {
-        background-color: rgba(30, 41, 59, 0.5); /* Semi-transparent slate */
+    /* METRIC CARDS */
+    div[data-testid="stMetric"] {
+        background-color: rgba(30, 41, 59, 0.5);
         backdrop-filter: blur(10px);
         border: 1px solid rgba(148, 163, 184, 0.2);
         padding: 20px;
         border-radius: 12px;
         box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-        transition: transform 0.2s ease;
-    }
-    
-    div[data-testid="stMetric"]:hover {
-        transform: translateY(-2px);
-        border-color: #00f2ff;
     }
 
-    /* BUTTONS: Glowing Action Button */
+    /* BUTTONS */
     .stButton>button {
         background: linear-gradient(90deg, #0ea5e9 0%, #2563eb 100%);
         color: white;
@@ -67,40 +60,14 @@ st.markdown("""
         padding: 12px 24px;
         border-radius: 8px;
         font-weight: 600;
-        letter-spacing: 0.5px;
         transition: all 0.3s ease;
-        box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
     }
     .stButton>button:hover {
-        box-shadow: 0 0 25px rgba(14, 165, 233, 0.7);
         transform: scale(1.02);
-    }
-
-    /* FILE UPLOADER: Clean styling */
-    [data-testid="stFileUploader"] {
-        border: 2px dashed #334155;
-        border-radius: 10px;
-        padding: 20px;
-    }
-
-    /* SIDEBAR styling */
-    section[data-testid="stSidebar"] {
-        background-color: #020617;
-        border-right: 1px solid #1e293b;
+        box-shadow: 0 0 15px rgba(14, 165, 233, 0.4);
     }
 </style>
 """, unsafe_allow_html=True)
-
-# --- HEADER SECTION ---
-col1, col2 = st.columns([3, 1])
-with col1:
-    st.title("Syllabus Scout ⚡")
-    st.markdown("<h3 style='margin-top: -20px; font-size: 1.2rem; color: #64748b;'>AI-Powered Academic Intelligence Engine</h3>", unsafe_allow_html=True)
-with col2:
-    # Just a visual placeholder for "Status"
-    st.metric("System Status", "🟢 Online", delta_color="normal")
-
-st.divider()
 
 # --- SIDEBAR & AUTH ---
 # 1. Automatic Auth (If you set the secret in Streamlit Cloud)
@@ -108,9 +75,9 @@ if "GROQ_API_KEY" in st.secrets:
     api_key = st.secrets["GROQ_API_KEY"]
     with st.sidebar:
         st.header("⚙️ Control Panel")
-        # No "Success" message. Just the helpful info.
         st.info("💡 **Pro Tip:** Upload all your syllabi at once to detect cross-course conflicts.")
         st.markdown("---")
+        st.caption("v1.0.0 | Rutgers CS Project")
 
 # 2. Manual Auth (If you are running locally without a secrets file)
 else:
@@ -121,7 +88,17 @@ else:
         st.markdown("---")
         st.caption("v1.0.0 | Rutgers CS Project")
 
-# --- LOGIC (Unchanged) ---
+# --- HEADER SECTION ---
+col1, col2 = st.columns([3, 1])
+with col1:
+    st.title("SyllabusScout ⚡")
+    st.markdown("<h3 style='margin-top: -20px; font-size: 1.2rem; color: #64748b;'>AI-Powered Academic Intelligence Engine</h3>", unsafe_allow_html=True)
+with col2:
+    st.metric("System Status", "🟢 Online")
+
+st.divider()
+
+# --- LOGIC ---
 def extract_text_from_pdf(uploaded_file):
     try:
         doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
@@ -242,13 +219,12 @@ if uploaded_files and api_key:
             if total_count > 0:
                 st.success("✅ Extraction Complete.")
                 
-                # 1. METRICS ROW
+                # 1. METRICS
                 col1, col2, col3, col4 = st.columns(4)
-                col1.metric("Total Deliverables", total_count)
+                col1.metric("Total Assignments", total_count)
                 col2.metric("Scheduled Events", len(master_scheduled))
                 col3.metric("TBD Items", len(master_unscheduled))
                 
-                # Calculate 'Crunch Time' (Month with most work)
                 if not master_scheduled.empty:
                     busy_month = master_scheduled['date'].dt.month_name().mode()[0]
                     col4.metric("Heaviest Month", busy_month)
@@ -257,25 +233,21 @@ if uploaded_files and api_key:
 
                 st.markdown("---")
 
-                # 2. INTERACTIVE TIMELINE (New Colors)
+                # 2. TIMELINE
                 if not master_scheduled.empty:
                     st.subheader("📊 Workload Visualization")
-                    
-                    # Custom "Neon" Color Scale
                     fig = px.scatter(
                         master_scheduled, 
                         x="date", y="course", 
                         size="weight", 
-                        color="type", # Colors are assigned automatically, but we customize the template
+                        color="type",
                         hover_data=["event", "weight"],
                         size_max=25,
                         template="plotly_dark",
                         title="Semester Timeline (Bubble Size = Grade Weight)"
                     )
-                    
-                    # Update chart styling to match the website theme
                     fig.update_layout(
-                        paper_bgcolor="rgba(0,0,0,0)", # Transparent background
+                        paper_bgcolor="rgba(0,0,0,0)",
                         plot_bgcolor="rgba(0,0,0,0)",
                         font=dict(family="Inter", color="#e2e8f0"),
                         xaxis=dict(showgrid=True, gridcolor="#334155"),
@@ -283,32 +255,26 @@ if uploaded_files and api_key:
                     )
                     st.plotly_chart(fig, use_container_width=True)
                 
-                # 3. SPLIT VIEW (Tabs for better organization)
-                st.markdown("### 📋 Detailed Breakdown")
-                tab1, tab2 = st.tabs(["📅 Scheduled Tasks", "📌 TBD / Undated"])
-                
-                with tab1:
-                    if not master_scheduled.empty:
-                        # Style the dataframe with pandas styling
-                        st.dataframe(
-                            master_scheduled[['date_str', 'course', 'event', 'type', 'weight']],
-                            use_container_width=True,
-                            hide_index=True
-                        )
-                    else:
-                        st.info("No dated tasks found.")
+                # 3. TABLES (No Tabs, Just Data)
+                st.markdown("### 📋 Scheduled Assignments")
+                if not master_scheduled.empty:
+                    st.dataframe(
+                        master_scheduled[['date_str', 'course', 'event', 'type', 'weight']],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.info("No dated assignments found.")
 
-                with tab2:
-                    if not master_unscheduled.empty:
-                        st.dataframe(
-                            master_unscheduled[['course', 'event', 'type', 'weight']], 
-                            use_container_width=True,
-                            hide_index=True
-                        )
-                    else:
-                        st.info("No undated tasks found.")
+                if not master_unscheduled.empty:
+                    st.markdown("### 📌 TBD / Undated Assignments")
+                    st.dataframe(
+                        master_unscheduled[['course', 'event', 'type', 'weight']], 
+                        use_container_width=True,
+                        hide_index=True
+                    )
 
-                # 4. EXPORT AREA
+                # 4. EXPORT
                 if not master_scheduled.empty:
                     st.markdown("---")
                     col_dl1, col_dl2 = st.columns([2,1])
