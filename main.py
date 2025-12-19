@@ -262,8 +262,8 @@ if (uploaded_files or manual_text) and api_key:
                 st.subheader("📊 Workload Timeline")
                 fig = px.scatter(
                     master_scheduled, x="date", y="course", 
-                    size="weight", color="type",
-                    hover_data=["event", "weight"],
+                    size="weight"+"%", color="type",
+                    hover_data=["event", "weight"+"%"],
                     size_max=30, # Bigger Bubbles
                     template="plotly_dark", # Dark Mode
                     color_discrete_sequence=px.colors.qualitative.Pastel, # Neon Colors
