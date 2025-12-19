@@ -137,8 +137,8 @@ def parse_with_gemini(syllabus_text, api_key):
     
     Structure example:
     [
-      {"event": "Midterm 1", "date": "2025-10-12", "type": "Exam", "weight": 20%},
-      {"event": "Final Project", "date": "TBD", "type": "Project", "weight": 30%}
+      {"event": "Midterm 1", "date": "2025-10-12", "type": "Exam", "weight": 20},
+      {"event": "Final Project", "date": "TBD", "type": "Project", "weight": 30}
     ]
     """
     
@@ -262,8 +262,8 @@ if (uploaded_files or manual_text) and api_key:
                 st.subheader("📊 Workload Timeline")
                 fig = px.scatter(
                     master_scheduled, x="date", y="course", 
-                    size="weight", color="type",
-                    hover_data=["event", "weight"],
+                    size="weight (%)", color="type",
+                    hover_data=["event", "weight (%)"],
                     size_max=30, # Bigger Bubbles
                     template="plotly_dark", # Dark Mode
                     color_discrete_sequence=px.colors.qualitative.Pastel, # Neon Colors
