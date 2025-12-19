@@ -1,4 +1,5 @@
 [![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://syllabus-scout.streamlit.app/)
+
 Syllabus Scout is a Streamlit application that uses Google's Gemini AI to automatically extract due dates, exams, and assignments from course syllabi (PDFs or text) and organizes them into an interactive timeline and a downloadable calendar.
 
 Features:
