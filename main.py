@@ -65,7 +65,7 @@ def parse_with_gemini(syllabus_text, api_key):
     genai.configure(api_key=api_key)
     
     # We use 1.5 Flash because it's fast, free, and smart
-    model = genai.GenerativeModel('gemini-1.5-flash')
+    model = genai.GenerativeModel('gemini-1.5-flash-latest')
     
     system_prompt = """
     You are a strictly JSON-speaking data extractor.
