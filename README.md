@@ -4,10 +4,10 @@ Syllabus Scout is a Streamlit application that uses Google's Gemini AI to automa
 
 Features:
 
-AI-Powered Extraction: Uses Google Gemini Flash to parse complex PDF text into structured JSON data.
-Smart Parsing: Automatically distinguishes between "Scheduled" events (with specific dates) and "TBD" assignments.
-Interactive Visualization: features a custom-styled Plotly timeline to visualize workload distribution.
-Calendar Export: Generates a .ics file compatible with Google Calendar, Apple Calendar, and Outlook.
+AI-Powered Extraction: Uses Google Gemini Flash to parse complex PDF text into structured JSON data.    
+Smart Parsing: Automatically distinguishes between "Scheduled" events (with specific dates) and "TBD" assignments.    
+Interactive Visualization: features a custom-styled Plotly timeline to visualize workload distribution.    
+Calendar Export: Generates a .ics file compatible with Google Calendar, Apple Calendar, and Outlook.    
 
 Tech Stack:
 
