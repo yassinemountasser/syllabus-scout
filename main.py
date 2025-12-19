@@ -202,7 +202,7 @@ def process_and_add_data(raw_json, source_name, scheduled_list, unscheduled_list
 
 # --- MAIN APP ---
 st.title("Syllabus Scout 🔎")
-st.markdown("**The Intelligent Semester Command Center**")
+st.markdown("**The Intelligent Syllabus Command Center**")
 
 # Two Columns for Input
 col_pdf, col_text = st.columns(2)
