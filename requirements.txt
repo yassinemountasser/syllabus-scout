@@ -4,3 +4,4 @@ pandas
 plotly
 ics
 pymupdf
+google-generativeai
