@@ -5,48 +5,108 @@ import google.generativeai as genai
 import json
 import plotly.express as px
 from ics import Calendar, Event
+import time
 
 # --- Page Config ---
 st.set_page_config(
-    page_title="SyllabusScout", 
-    page_icon="📅", 
+    page_title="Syllabus Scout 🔎", 
+    page_icon="🔎", 
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# --- CSS (Cleaned up - No more broken tables) ---
+# --- 🎨 VISUAL UPGRADE (CSS ONLY) ---
 st.markdown("""
 <style>
-    /* Use standard Streamlit dark theme colors, just adding a background gradient */
+    /* IMPORT FONT */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    
+    /* GLOBAL THEME */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* DARK MODE BACKGROUND - Deep Space Blue */
     .stApp {
         background: radial-gradient(circle at 10% 20%, #0f172a 0%, #020617 90%);
         color: #e2e8f0;
     }
-    
-    /* Make metrics pop */
-    div[data-testid="stMetric"] {
-        background-color: #1e293b;
-        border: 1px solid #334155;
-        padding: 15px;
-        border-radius: 10px;
+
+    /* NEON TITLES */
+    h1 {
+        background: -webkit-linear-gradient(0deg, #38bdf8, #818cf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800 !important;
+        letter-spacing: -1px;
     }
+    h2, h3 {
+        color: #94a3b8 !important;
+        font-weight: 600;
+    }
+
+    /* CARDS & METRICS - Glassmorphism */
+    div[data-testid="stMetric"] {
+        background-color: rgba(30, 41, 59, 0.5); /* Semi-transparent */
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+    div[data-testid="stMetricValue"] {
+        color: #38bdf8 !important; /* Cyan Numbers */
+    }
+
+    /* BUTTONS - Blue Gradient */
+    .stButton>button {
+        background: linear-gradient(90deg, #0ea5e9 0%, #3b82f6 100%);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        box-shadow: 0 0 20px rgba(14, 165, 233, 0.5);
+        transform: translateY(-2px);
+    }
+
+    /* TABLE HEADERS */
+    thead tr th:first-child { display:none }
+    tbody th { display:none }
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR ---
+# --- SIDEBAR (BYOK LOGIC) ---
 with st.sidebar:
     st.header("⚙️ Settings")
     
-    # Check for secrets first, else ask user
-    if "GEMINI_API_KEY" in st.secrets:
-        api_key = st.secrets["GEMINI_API_KEY"]
-        st.success("✅ Google Gemini Connected")
-    else:
-        api_key = st.text_input("Google Gemini API Key", type="password", placeholder="AIzaSy...")
-        st.caption("[Get a Free Key Here](https://aistudio.google.com/app/apikey)")
+    # The Input Box
+    api_key = st.text_input("Enter Google API Key", type="password")
     
-    st.markdown("---")
-    st.info("💡 **Tip:** Gemini 1.5 Flash is excellent at reading messy document layouts.")
+    # Status Messages
+    if not api_key:
+        st.warning("⚠️ Key required to run.")
+    else:
+        st.success("Ready to scan! 🚀")
+
+    st.divider()
+
+    # THE INSTRUCTIONS
+    with st.expander("❓ How to get a free key"):
+        st.markdown("""
+        1. Go to **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
+        2. Log in with your Google Account.
+        3. Click **"Create API Key"**.
+        4. Copy the key (it starts with `AIza...`).
+        5. Paste it above!
+        
+        *Note: Using a key gives you 20 free requests per day.*
+        """)
+    
+
 
 # --- FUNCTIONS ---
 
@@ -61,38 +121,30 @@ def extract_text_from_pdf(uploaded_file):
         return ""
 
 def parse_with_gemini(syllabus_text, api_key):
-    # Configure Gemini
     genai.configure(api_key=api_key)
     
-    # Updated Model Name to fix 404 Error
-    model = genai.GenerativeModel('gemini-1.5-flash-latest')
+    # FIX: Use the stable alias.
+    model = genai.GenerativeModel('gemini-1.5-flash')
     
     system_prompt = """
     You are a strictly JSON-speaking data extractor.
-    Your job is to read a course syllabus and extract every single due date, exam, and assignment.
-
-    RULES:
-    1. Extract the Event Name, Date, Type (Exam, Quiz, HW, Project), and Weight (%).
-    2. Date Format: YYYY-MM-DD.
-    3. CRITICAL: If an assignment is listed but has NO date, set date to "TBD". Do not ignore it.
-    4. Return ONLY a valid JSON list of objects. Do not write "Here is the JSON". Just the JSON.
+    Extract every single due date, exam, and assignment from the text.
     
-    JSON Structure:
+    CRITICAL INSTRUCTIONS:
+    1. Extract Event Name, Date (YYYY-MM-DD), Type, and Weight (%).
+    2. If NO date is listed (e.g. "Weekly Quizzes"), set date to "TBD".
+    3. Return ONLY a valid JSON list. Do not write markdown blocks.
+    
+    Structure example:
     [
-      {"event": "Midterm 1", "date": "2024-10-12", "type": "Exam", "weight": 20},
-      {"event": "Essay 1", "date": "TBD", "type": "Homework", "weight": 10}
+      {"event": "Midterm 1", "date": "2025-10-12", "type": "Exam", "weight": 20},
+      {"event": "Final Project", "date": "TBD", "type": "Project", "weight": 30}
     ]
     """
     
     try:
-        response = model.generate_content(system_prompt + "\n\nSYLLABUS TEXT:\n" + syllabus_text)
-        return response.text
-    except Exception as e:
-        st.error(f"Gemini Error: {e}")
-        return None
-    
-    try:
-        # Gemini handles large context very well
+        # Add a small delay to be safe (Rate Limit protection)
+        time.sleep(1) 
         response = model.generate_content(system_prompt + "\n\nSYLLABUS TEXT:\n" + syllabus_text)
         return response.text
     except Exception as e:
@@ -113,62 +165,82 @@ def create_ics_file(df):
             continue
     return str(c)
 
+def process_and_add_data(raw_json, source_name, scheduled_list, unscheduled_list):
+    """Helper to clean JSON and append to lists"""
+    if raw_json:
+        try:
+            # Clean up JSON (Gemini sometimes adds markdown blocks)
+            clean_json = raw_json.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
+            df = pd.DataFrame(data)
+            df['course'] = source_name
+
+            # Normalize Columns
+            df['date'] = df['date'].astype(str).str.strip()
+            df['weight'] = pd.to_numeric(df['weight'], errors='coerce').fillna(0)
+
+            # Split TBD vs Dates
+            is_tbd = (df['date'].str.upper() == "TBD") | (df['date'] == "") | (df['date'].str.lower() == "null")
+            
+            tbd_items = df[is_tbd].copy()
+            dated_items = df[~is_tbd].copy()
+
+            # Process Dates
+            if not dated_items.empty:
+                dated_items['date'] = pd.to_datetime(dated_items['date'], errors='coerce')
+                dated_items = dated_items.dropna(subset=['date'])
+                if not dated_items.empty:
+                    dated_items['date_str'] = dated_items['date'].dt.strftime('%Y-%m-%d')
+                    scheduled_list.append(dated_items)
+
+            # Process TBD
+            if not tbd_items.empty:
+                tbd_items['date'] = "TBD"
+                unscheduled_list.append(tbd_items)
+        except Exception as e:
+            st.error(f"Error parsing data from {source_name}: {e}")
+
 # --- MAIN APP ---
-st.title("SyllabusScout ⚡")
-st.caption("Powered by Google Gemini 1.5 Flash")
+st.title("Syllabus Scout 🔎")
+st.markdown("**The Intelligent Semester Command Center**")
 
-uploaded_files = st.file_uploader("Upload Syllabi (PDF)", type="pdf", accept_multiple_files=True)
+# Two Columns for Input
+col_pdf, col_text = st.columns(2)
 
-if uploaded_files and api_key:
+with col_pdf:
+    uploaded_files = st.file_uploader("📂 Upload Syllabi (PDF)", type="pdf", accept_multiple_files=True)
+
+with col_text:
+    manual_text = st.text_area("📝 Paste Text Directly", height=150, help="Copy content from a syllabus and paste it here if you don't have a PDF.")
+
+if (uploaded_files or manual_text) and api_key:
     if st.button("🚀 Analyze Semester", type="primary"):
         
         scheduled_dfs = [] 
         unscheduled_dfs = []
         
+        # Calculate total items to process for progress bar
+        total_items = (len(uploaded_files) if uploaded_files else 0) + (1 if manual_text else 0)
         progress_bar = st.progress(0)
-        
-        for i, file in enumerate(uploaded_files):
-            text = extract_text_from_pdf(file)
-            if not text: continue
-            
-            # Call Gemini
-            raw_json = parse_with_gemini(text, api_key)
-            
-            if raw_json:
-                try:
-                    # Clean up JSON (Gemini sometimes adds markdown blocks)
-                    clean_json = raw_json.replace("```json", "").replace("```", "").strip()
-                    data = json.loads(clean_json)
-                    df = pd.DataFrame(data)
-                    df['course'] = file.name.replace(".pdf", "")
+        current_step = 0
 
-                    # Normalize Columns
-                    df['date'] = df['date'].astype(str).str.strip()
-                    df['weight'] = pd.to_numeric(df['weight'], errors='coerce').fillna(0)
+        # 1. PROCESS MANUAL TEXT
+        if manual_text:
+            raw_json = parse_with_gemini(manual_text, api_key)
+            process_and_add_data(raw_json, "Manual Entry", scheduled_dfs, unscheduled_dfs)
+            current_step += 1
+            progress_bar.progress(current_step / total_items)
 
-                    # Split TBD vs Dates
-                    is_tbd = (df['date'].str.upper() == "TBD") | (df['date'] == "") | (df['date'].str.lower() == "null")
-                    
-                    tbd_items = df[is_tbd].copy()
-                    dated_items = df[~is_tbd].copy()
-
-                    # Process Dates
-                    if not dated_items.empty:
-                        dated_items['date'] = pd.to_datetime(dated_items['date'], errors='coerce')
-                        dated_items = dated_items.dropna(subset=['date'])
-                        if not dated_items.empty:
-                            dated_items['date_str'] = dated_items['date'].dt.strftime('%Y-%m-%d')
-                            scheduled_dfs.append(dated_items)
-
-                    # Process TBD
-                    if not tbd_items.empty:
-                        tbd_items['date'] = "TBD"
-                        unscheduled_dfs.append(tbd_items)
-
-                except Exception as e:
-                    st.error(f"Error parsing {file.name}: {e}")
-            
-            progress_bar.progress((i + 1) / len(uploaded_files))
+        # 2. PROCESS PDFS
+        if uploaded_files:
+            for file in uploaded_files:
+                text = extract_text_from_pdf(file)
+                if text:
+                    raw_json = parse_with_gemini(text, api_key)
+                    process_and_add_data(raw_json, file.name.replace(".pdf", ""), scheduled_dfs, unscheduled_dfs)
+                
+                current_step += 1
+                progress_bar.progress(current_step / total_items)
 
         # --- RESULTS ---
         master_scheduled = pd.concat(scheduled_dfs, ignore_index=True) if scheduled_dfs else pd.DataFrame()
@@ -185,16 +257,28 @@ if uploaded_files and api_key:
             
             st.divider()
 
-            # 1. Timeline Chart
+            # 1. Timeline Chart (VISUALLY UPGRADED)
             if not master_scheduled.empty:
                 st.subheader("📊 Workload Timeline")
                 fig = px.scatter(
                     master_scheduled, x="date", y="course", 
                     size="weight", color="type",
                     hover_data=["event", "weight"],
-                    size_max=25, template="plotly_dark",
+                    size_max=30, # Bigger Bubbles
+                    template="plotly_dark", # Dark Mode
+                    color_discrete_sequence=px.colors.qualitative.Pastel, # Neon Colors
                     title="Semester Overview"
                 )
+                
+                # Make the chart transparent and clean
+                fig.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(family="Inter", size=14),
+                    xaxis=dict(showgrid=False),
+                    yaxis=dict(showgrid=True, gridcolor="#334155")
+                )
+                
                 st.plotly_chart(fig, use_container_width=True)
 
             # 2. THE TABLES (High Visibility)
@@ -233,7 +317,7 @@ if uploaded_files and api_key:
                     mime="text/calendar"
                 )
         else:
-            st.warning("No data found. The AI couldn't read the dates from this PDF.")
+            st.warning("No data found. The AI couldn't find assignments in the text provided.")
 
 elif not api_key:
-    st.warning("Please enter your Gemini API Key in the sidebar.")
+    st.warning("Please enter your Gemini API Key in the sidebar on the top-left corner.")
