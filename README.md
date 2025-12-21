@@ -32,7 +32,7 @@ Installation & Setup
 
 3.  Run the application:
     ```bash
-    streamlit run app.py
+    streamlit run main.py
     ```
 
 Usage:
