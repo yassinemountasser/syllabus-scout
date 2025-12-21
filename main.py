@@ -1,5 +1,5 @@
 import streamlit as st
-import fitz  # PyMuPDF
+import fitz  
 import pandas as pd
 import google.generativeai as genai
 import json
@@ -7,7 +7,6 @@ import plotly.express as px
 from ics import Calendar, Event
 import time
 
-# --- Page Config ---
 st.set_page_config(
     page_title="Syllabus Scout 🔎", 
     page_icon="🔎", 
@@ -15,7 +14,6 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- 🎨 VISUAL UPGRADE (CSS ONLY) ---
 st.markdown("""
 <style>
     /* IMPORT FONT */
@@ -79,23 +77,19 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR (BYOK LOGIC) ---
 with st.sidebar:
     st.header("⚙️ Settings")
     
-    # The Input Box
     api_key = st.text_input("Enter Google API Key", type="password")
     
-    # Status Messages
     if not api_key:
-        st.warning("⚠️ Key required to run.")
+        st.warning("API key required to run.")
     else:
-        st.success("Ready to scan! 🚀")
+        st.success("Ready to scan!")
 
     st.divider()
 
-    # THE INSTRUCTIONS
-    with st.expander("❓ How to get a free key"):
+    with st.expander("How to get a free key?"):
         st.markdown("""
         1. Go to **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
         2. Log in with your Google Account.
@@ -107,8 +101,6 @@ with st.sidebar:
         """)
     
 
-
-# --- FUNCTIONS ---
 
 def extract_text_from_pdf(uploaded_file):
     try:
@@ -123,7 +115,6 @@ def extract_text_from_pdf(uploaded_file):
 def parse_with_gemini(syllabus_text, api_key):
     genai.configure(api_key=api_key)
     
-    # FIX: Use the stable alias.
     model = genai.GenerativeModel('gemini-flash-latest')
     
     system_prompt = """
@@ -143,7 +134,6 @@ def parse_with_gemini(syllabus_text, api_key):
     """
     
     try:
-        # Add a small delay to be safe (Rate Limit protection)
         time.sleep(1) 
         response = model.generate_content(system_prompt + "\n\nSYLLABUS TEXT:\n" + syllabus_text)
         return response.text
@@ -169,23 +159,19 @@ def process_and_add_data(raw_json, source_name, scheduled_list, unscheduled_list
     """Helper to clean JSON and append to lists"""
     if raw_json:
         try:
-            # Clean up JSON (Gemini sometimes adds markdown blocks)
             clean_json = raw_json.replace("```json", "").replace("```", "").strip()
             data = json.loads(clean_json)
             df = pd.DataFrame(data)
             df['course'] = source_name
 
-            # Normalize Columns
             df['date'] = df['date'].astype(str).str.strip()
             df['weight'] = pd.to_numeric(df['weight'], errors='coerce').fillna(0)
 
-            # Split TBD vs Dates
             is_tbd = (df['date'].str.upper() == "TBD") | (df['date'] == "") | (df['date'].str.lower() == "null")
             
             tbd_items = df[is_tbd].copy()
             dated_items = df[~is_tbd].copy()
 
-            # Process Dates
             if not dated_items.empty:
                 dated_items['date'] = pd.to_datetime(dated_items['date'], errors='coerce')
                 dated_items = dated_items.dropna(subset=['date'])
@@ -193,18 +179,15 @@ def process_and_add_data(raw_json, source_name, scheduled_list, unscheduled_list
                     dated_items['date_str'] = dated_items['date'].dt.strftime('%Y-%m-%d')
                     scheduled_list.append(dated_items)
 
-            # Process TBD
             if not tbd_items.empty:
                 tbd_items['date'] = "TBD"
                 unscheduled_list.append(tbd_items)
         except Exception as e:
             st.error(f"Error parsing data from {source_name}: {e}")
 
-# --- MAIN APP ---
-st.title("Syllabus Scout 🔎")
-st.markdown("**The Intelligent Syllabus Command Center**")
+st.title("Syllabus Scout ")
+st.markdown("**AI-Powered Semester Planner**")
 
-# Two Columns for Input
 col_pdf, col_text = st.columns(2)
 
 with col_pdf:
@@ -219,19 +202,16 @@ if (uploaded_files or manual_text) and api_key:
         scheduled_dfs = [] 
         unscheduled_dfs = []
         
-        # Calculate total items to process for progress bar
         total_items = (len(uploaded_files) if uploaded_files else 0) + (1 if manual_text else 0)
         progress_bar = st.progress(0)
         current_step = 0
 
-        # 1. PROCESS MANUAL TEXT
         if manual_text:
             raw_json = parse_with_gemini(manual_text, api_key)
             process_and_add_data(raw_json, "Manual Entry", scheduled_dfs, unscheduled_dfs)
             current_step += 1
             progress_bar.progress(current_step / total_items)
 
-        # 2. PROCESS PDFS
         if uploaded_files:
             for file in uploaded_files:
                 text = extract_text_from_pdf(file)
@@ -242,14 +222,12 @@ if (uploaded_files or manual_text) and api_key:
                 current_step += 1
                 progress_bar.progress(current_step / total_items)
 
-        # --- RESULTS ---
         master_scheduled = pd.concat(scheduled_dfs, ignore_index=True) if scheduled_dfs else pd.DataFrame()
         master_unscheduled = pd.concat(unscheduled_dfs, ignore_index=True) if unscheduled_dfs else pd.DataFrame()
 
         if not master_scheduled.empty or not master_unscheduled.empty:
             st.success("Analysis Complete!")
             
-            # Metrics
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Events", len(master_scheduled) + len(master_unscheduled))
             col2.metric("Scheduled", len(master_scheduled))
@@ -257,20 +235,18 @@ if (uploaded_files or manual_text) and api_key:
             
             st.divider()
 
-            # 1. Timeline Chart (VISUALLY UPGRADED)
             if not master_scheduled.empty:
-                st.subheader("📊 Workload Timeline")
+                st.subheader(" Workload Timeline")
                 fig = px.scatter(
                     master_scheduled, x="date", y="course", 
                     size="weight", color="type",
                     hover_data=["event", "weight"],
-                    size_max=30, # Bigger Bubbles
-                    template="plotly_dark", # Dark Mode
-                    color_discrete_sequence=px.colors.qualitative.Pastel, # Neon Colors
+                    size_max=30, 
+                    template="plotly_dark",
+                    color_discrete_sequence=px.colors.qualitative.Pastel, 
                     title="Semester Overview"
                 )
                 
-                # Make the chart transparent and clean
                 fig.update_layout(
                     paper_bgcolor="rgba(0,0,0,0)",
                     plot_bgcolor="rgba(0,0,0,0)",
@@ -281,11 +257,10 @@ if (uploaded_files or manual_text) and api_key:
                 
                 st.plotly_chart(fig, use_container_width=True)
 
-            # 2. THE TABLES (High Visibility)
             col_left, col_right = st.columns(2)
             
             with col_left:
-                st.subheader("✅ Scheduled Items")
+                st.subheader(" Scheduled Items")
                 if not master_scheduled.empty:
                     st.dataframe(
                         master_scheduled[['date_str', 'course', 'event', 'weight']],
@@ -296,7 +271,7 @@ if (uploaded_files or manual_text) and api_key:
                     st.info("No dated items found.")
 
             with col_right:
-                st.subheader("📌 TBD Items")
+                st.subheader(" TBD Items")
                 if not master_unscheduled.empty:
                     st.dataframe(
                         master_unscheduled[['course', 'event', 'weight']],
@@ -311,7 +286,7 @@ if (uploaded_files or manual_text) and api_key:
                 st.divider()
                 ics_data = create_ics_file(master_scheduled)
                 st.download_button(
-                    "📥 Download Calendar (.ics)", 
+                    " Download Calendar (.ics)", 
                     data=ics_data, 
                     file_name="semester.ics", 
                     mime="text/calendar"
