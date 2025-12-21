@@ -1,61 +1,298 @@
-[![Streamlit App](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://syllabus-scout.streamlit.app/)
+import streamlit as st
+import fitz  
+import pandas as pd
+import google.generativeai as genai
+import json
+import plotly.express as px
+from ics import Calendar, Event
+import time
 
-Syllabus Scout is a Streamlit application that uses Google's Gemini AI to automatically extract due dates, exams, and assignments from course syllabi (PDFs or text) and organizes them into an interactive timeline and a downloadable calendar.
+st.set_page_config(
+    page_title="Syllabus Scout 🔎", 
+    page_icon="🔎", 
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-Features:
+st.markdown("""
+<style>
+    /* IMPORT FONT */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap');
+    
+    /* GLOBAL THEME */
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
+    }
+    
+    /* DARK MODE BACKGROUND - Deep Space Blue */
+    .stApp {
+        background: radial-gradient(circle at 10% 20%, #0f172a 0%, #020617 90%);
+        color: #e2e8f0;
+    }
 
-AI-Powered Extraction: Uses Google Gemini Flash to parse complex PDF text into structured JSON data.    
-Smart Parsing: Automatically distinguishes between "Scheduled" events (with specific dates) and "TBD" assignments.    
-Interactive Visualization: features a custom-styled Plotly timeline to visualize workload distribution.    
-Calendar Export: Generates a .ics file compatible with Google Calendar, Apple Calendar, and Outlook.    
+    /* NEON TITLES */
+    h1 {
+        background: -webkit-linear-gradient(0deg, #38bdf8, #818cf8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        font-weight: 800 !important;
+        letter-spacing: -1px;
+    }
+    h2, h3 {
+        color: #94a3b8 !important;
+        font-weight: 600;
+    }
 
-Tech Stack:
+    /* CARDS & METRICS - Glassmorphism */
+    div[data-testid="stMetric"] {
+        background-color: rgba(30, 41, 59, 0.5); /* Semi-transparent */
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        padding: 15px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.2);
+    }
+    div[data-testid="stMetricValue"] {
+        color: #38bdf8 !important; /* Cyan Numbers */
+    }
 
-Frontend: Streamlit (Python)    
-AI/LLM: Google Generative AI (Gemini)    
-Data Processing: Pandas, PyMuPDF (Fitz)    
-Visualization: Plotly Express    
-Utilities: ICS (iCalendar)    
+    /* BUTTONS - Blue Gradient */
+    .stButton>button {
+        background: linear-gradient(90deg, #0ea5e9 0%, #3b82f6 100%);
+        color: white;
+        border: none;
+        padding: 10px 24px;
+        border-radius: 8px;
+        font-weight: 600;
+        transition: all 0.3s ease;
+    }
+    .stButton>button:hover {
+        box-shadow: 0 0 20px rgba(14, 165, 233, 0.5);
+        transform: translateY(-2px);
+    }
 
-Installation & Setup
+    /* TABLE HEADERS */
+    thead tr th:first-child { display:none }
+    tbody th { display:none }
+</style>
+""", unsafe_allow_html=True)
 
-1.  Clone the repository:
-    ```bash
-    git clone https://github.com/yassinemountasser/syllabus-scout.git
-    cd syllabus-scout
-    ```
+with st.sidebar:
+    st.header("⚙️ Settings")
+    
+    api_key = st.text_input("Enter Google API Key", type="password")
+    
+    if not api_key:
+        st.warning("API key required to run.")
+    else:
+        st.success("Ready to scan!")
 
-2.  Install dependencies:
-    ```bash
-    pip install -r requirements.txt
-    ```
+    st.divider()
 
-3.  Run the application:
-    ```bash
-    streamlit run app.py
-    ```
-
-Usage:
-1.  Get an API Key:
-     Go to [Google AI Studio](https://aistudio.google.com/app/apikey) and create a free API key.
-2.  Launch the Website:
-     Enter your API key in the sidebar.
-3.  Upload:
-     Upload your course syllabi (PDF) or paste the text directly.
-4.  Analyze:
-     Click "Analyze Semester" to generate your timeline and table.
-5.  Export:
-     Download the .ics file to import all due dates into your personal calendar.
-
-Screenshots:
-
-<img width="1440" height="665" alt="Screenshot 2025-12-19 at 6 12 03 PM" src="https://github.com/user-attachments/assets/3622f106-32aa-4c88-9796-44e86f56d0ff" />
-
-<img width="1440" height="665" alt="Screenshot 2025-12-19 at 6 13 25 PM" src="https://github.com/user-attachments/assets/9978c99a-41ba-4436-be4f-c550a50c384f" />
+    with st.expander("How to get a free key?"):
+        st.markdown("""
+        1. Go to **[Google AI Studio](https://aistudio.google.com/app/apikey)**.
+        2. Log in with your Google Account.
+        3. Click **"Create API Key"**.
+        4. Copy the key (it starts with `AIza...`).
+        5. Paste it above!
+        
+        *Note: Using a key gives you 20 free requests per day.*
+        """)
+    
 
 
-<img width="1440" height="665" alt="Screenshot 2025-12-19 at 6 28 31 PM" src="https://github.com/user-attachments/assets/2702ad6f-2246-4195-85c8-15de30018ed9" />
+def extract_text_from_pdf(uploaded_file):
+    try:
+        doc = fitz.open(stream=uploaded_file.read(), filetype="pdf")
+        text = ""
+        for page in doc:
+            text += page.get_text()
+        return text
+    except Exception as e:
+        return ""
 
-License:
+def parse_with_gemini(syllabus_text, api_key):
+    genai.configure(api_key=api_key)
+    
+    model = genai.GenerativeModel('gemini-flash-latest')
+    
+    system_prompt = """
+    You are a strictly JSON-speaking data extractor.
+    Extract every single due date, exam, and assignment from the text.
+    
+    CRITICAL INSTRUCTIONS:
+    1. Extract Event Name, Date (YYYY-MM-DD), Type, and Weight (%).
+    2. If NO date is listed (e.g. "Weekly Quizzes"), set date to "TBD".
+    3. Return ONLY a valid JSON list. Do not write markdown blocks.
+    
+    Structure example:
+    [
+      {"event": "Midterm 1", "date": "2025-10-12", "type": "Exam", "weight": 20},
+      {"event": "Final Project", "date": "TBD", "type": "Project", "weight": 30}
+    ]
+    """
+    
+    try:
+        time.sleep(1) 
+        response = model.generate_content(system_prompt + "\n\nSYLLABUS TEXT:\n" + syllabus_text)
+        return response.text
+    except Exception as e:
+        st.error(f"Gemini Error: {e}")
+        return None
 
-This project is open source and available under the [MIT License](LICENSE).
+def create_ics_file(df):
+    c = Calendar()
+    for index, row in df.iterrows():
+        try:
+            e = Event()
+            e.name = f"{row['event']} ({row['course']})"
+            e.begin = row['date']
+            e.description = f"Type: {row['type']}\nWeight: {row['weight']}%"
+            e.make_all_day()
+            c.events.add(e)
+        except:
+            continue
+    return str(c)
+
+def process_and_add_data(raw_json, source_name, scheduled_list, unscheduled_list):
+    """Helper to clean JSON and append to lists"""
+    if raw_json:
+        try:
+            clean_json = raw_json.replace("```json", "").replace("```", "").strip()
+            data = json.loads(clean_json)
+            df = pd.DataFrame(data)
+            df['course'] = source_name
+
+            df['date'] = df['date'].astype(str).str.strip()
+            df['weight'] = pd.to_numeric(df['weight'], errors='coerce').fillna(0)
+
+            is_tbd = (df['date'].str.upper() == "TBD") | (df['date'] == "") | (df['date'].str.lower() == "null")
+            
+            tbd_items = df[is_tbd].copy()
+            dated_items = df[~is_tbd].copy()
+
+            if not dated_items.empty:
+                dated_items['date'] = pd.to_datetime(dated_items['date'], errors='coerce')
+                dated_items = dated_items.dropna(subset=['date'])
+                if not dated_items.empty:
+                    dated_items['date_str'] = dated_items['date'].dt.strftime('%Y-%m-%d')
+                    scheduled_list.append(dated_items)
+
+            if not tbd_items.empty:
+                tbd_items['date'] = "TBD"
+                unscheduled_list.append(tbd_items)
+        except Exception as e:
+            st.error(f"Error parsing data from {source_name}: {e}")
+
+st.title("Syllabus Scout ")
+st.markdown("**The Intelligent Syllabus Command Center**")
+
+col_pdf, col_text = st.columns(2)
+
+with col_pdf:
+    uploaded_files = st.file_uploader("📂 Upload Syllabi (PDF)", type="pdf", accept_multiple_files=True)
+
+with col_text:
+    manual_text = st.text_area("📝 Paste Text Directly", height=150, help="Copy content from a syllabus and paste it here if you don't have a PDF.")
+
+if (uploaded_files or manual_text) and api_key:
+    if st.button("🚀 Analyze Semester", type="primary"):
+        
+        scheduled_dfs = [] 
+        unscheduled_dfs = []
+        
+        total_items = (len(uploaded_files) if uploaded_files else 0) + (1 if manual_text else 0)
+        progress_bar = st.progress(0)
+        current_step = 0
+
+        if manual_text:
+            raw_json = parse_with_gemini(manual_text, api_key)
+            process_and_add_data(raw_json, "Manual Entry", scheduled_dfs, unscheduled_dfs)
+            current_step += 1
+            progress_bar.progress(current_step / total_items)
+
+        if uploaded_files:
+            for file in uploaded_files:
+                text = extract_text_from_pdf(file)
+                if text:
+                    raw_json = parse_with_gemini(text, api_key)
+                    process_and_add_data(raw_json, file.name.replace(".pdf", ""), scheduled_dfs, unscheduled_dfs)
+                
+                current_step += 1
+                progress_bar.progress(current_step / total_items)
+
+        master_scheduled = pd.concat(scheduled_dfs, ignore_index=True) if scheduled_dfs else pd.DataFrame()
+        master_unscheduled = pd.concat(unscheduled_dfs, ignore_index=True) if unscheduled_dfs else pd.DataFrame()
+
+        if not master_scheduled.empty or not master_unscheduled.empty:
+            st.success("Analysis Complete!")
+            
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Events", len(master_scheduled) + len(master_unscheduled))
+            col2.metric("Scheduled", len(master_scheduled))
+            col3.metric("To Be Announced", len(master_unscheduled))
+            
+            st.divider()
+
+            if not master_scheduled.empty:
+                st.subheader(" Workload Timeline")
+                fig = px.scatter(
+                    master_scheduled, x="date", y="course", 
+                    size="weight", color="type",
+                    hover_data=["event", "weight"],
+                    size_max=30, 
+                    template="plotly_dark",
+                    color_discrete_sequence=px.colors.qualitative.Pastel, 
+                    title="Semester Overview"
+                )
+                
+                fig.update_layout(
+                    paper_bgcolor="rgba(0,0,0,0)",
+                    plot_bgcolor="rgba(0,0,0,0)",
+                    font=dict(family="Inter", size=14),
+                    xaxis=dict(showgrid=False),
+                    yaxis=dict(showgrid=True, gridcolor="#334155")
+                )
+                
+                st.plotly_chart(fig, use_container_width=True)
+
+            col_left, col_right = st.columns(2)
+            
+            with col_left:
+                st.subheader(" Scheduled Items")
+                if not master_scheduled.empty:
+                    st.dataframe(
+                        master_scheduled[['date_str', 'course', 'event', 'weight']],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.info("No dated items found.")
+
+            with col_right:
+                st.subheader(" TBD Items")
+                if not master_unscheduled.empty:
+                    st.dataframe(
+                        master_unscheduled[['course', 'event', 'weight']],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                else:
+                    st.info("No TBD items found.")
+            
+            # 3. Calendar Export
+            if not master_scheduled.empty:
+                st.divider()
+                ics_data = create_ics_file(master_scheduled)
+                st.download_button(
+                    " Download Calendar (.ics)", 
+                    data=ics_data, 
+                    file_name="semester.ics", 
+                    mime="text/calendar"
+                )
+        else:
+            st.warning("No data found. The AI couldn't find assignments in the text provided.")
+
+elif not api_key:
+    st.warning("Please enter your Gemini API Key in the sidebar on the top-left corner.")
